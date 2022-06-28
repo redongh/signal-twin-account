@@ -8,8 +8,20 @@ else
   MAC=0
 fi
 
+flatpak list --columns application 2> /dev/null | fgrep -q org.signal.Signal
+if [ $? -eq 0 ]; then
+  FLATPAK=1
+else
+  FLATPAK=0
+fi
+
 if [ $MAC -eq 1 ]; then
   SIGNAL_DIR="${HOME}/Library/Application Support/Signal"
+elif [ $FLATPAK -eq 1 ]; then
+  SIGNAL_DIR="$HOME/.var/app/org.signal.Signal/config/Signal"
+  if [ ! -d "$SIGNAL_DIR" ]; then
+    echo "ERROR: FAILED to find flatpak folder for Signal at $SIGNAL_DIR, maybe your distro uses a different path? Aborting!" && exit 1
+  fi
 else
   SIGNAL_DIR="/opt/Signal"
 fi
@@ -24,8 +36,8 @@ stop_signal() {
     osascript -e 'Tell application "Signal" to quit'
     sleep 5
   else
-    pkill signal-desktop
-    sleep 5
+    pgrep signal-desktop >/dev/null && pkill signal-desktop
+    sleep 3
   fi
 }
 
@@ -33,12 +45,14 @@ start_signal() {
   echo 'Starting Signal...'
   if [ $MAC -eq 1 ]; then
     open "/Applications/Signal.app"
+  elif [ $FLATPAK -eq 1 ]; then
+    flatpak run --branch=stable --arch=x86_64 --command=signal-desktop --file-forwarding org.signal.Signal >/dev/null 2>&1 &
   else
     (signal-desktop &) >/dev/null 2>&1
   fi
 }
 
-if [ ! -d "$SIGNAL_DIR" ]; then
+if [ ! $FLATPAK -a ! -d "$SIGNAL_DIR" ]; then
   echo "No Signal Desktop installation was found"
   exit 1
 fi
@@ -48,10 +62,10 @@ if [ ! -d "$SECONDARY" ]; then
   stop_signal
   mv "$SIGNAL_DIR" "$SECONDARY"
   start_signal
-  echo "Please associate your other signal account, and then hit [Enter}."
-  read -n -1 -p "" ENTER
-  sudo ln -sf "$FILEPATH" /usr/local/bin/sigswap
-  echo "Whenever you want to swap accounts, simply run the command 'sigswap'."
+  echo "Please associate your other signal account now, then afterwards hit [Enter]."
+  read -n 1 -p "" ENTER
+  echo "Please enter your sudo-passoword in order to register the command 'sigswap'"
+  sudo ln -sf "$FILEPATH" /usr/local/bin/sigswap && echo "Registration successful; whenever you want to swap accounts, simply run the command 'sigswap'." || echo "ERROR: sigswap could not be registered, you won't be able to use 'sigswap'!"
   exit
 fi
 
