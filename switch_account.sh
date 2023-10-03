@@ -2,13 +2,13 @@
 
 cd $(cd -P -- "$(dirname -- "$0")" && pwd -P)
 
-if uname -a | grep -q Darwin >/dev/null 2>&1; then
+if uname -a | grep -F -q Darwin >/dev/null 2>&1; then
   MAC=1
 else
   MAC=0
 fi
 
-flatpak list --columns application 2> /dev/null | fgrep -q org.signal.Signal
+flatpak list --columns application 2> /dev/null | grep -F -q org.signal.Signal
 if [ $? -eq 0 ]; then
   FLATPAK=1
 else
